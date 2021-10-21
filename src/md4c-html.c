@@ -48,6 +48,7 @@
 typedef struct MD_HTML_tag MD_HTML;
 struct MD_HTML_tag {
   void (*process_output)(const MD_CHAR*, MD_SIZE, void*);
+  MD_PARSER* user_parser;
   void* userdata;
   unsigned flags;
   int image_nesting_level;
@@ -362,6 +363,9 @@ static int enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
   static const MD_CHAR* head[6] = {"<h1>", "<h2>", "<h3>", "<h4>", "<h5>", "<h6>"};
   MD_HTML* r = (MD_HTML*)userdata;
 
+  if (r->user_parser->enter_block)
+    r->user_parser->enter_block(type, detail, r->userdata);
+
   switch (type) {
     case MD_BLOCK_DOC: /* noop */
       break;
@@ -466,11 +470,17 @@ static int leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
       break;
   }
 
+  if (r->user_parser->leave_block)
+    return r->user_parser->leave_block(type, detail, r->userdata);
+
   return 0;
 }
 
 static int enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata) {
   MD_HTML* r = (MD_HTML*)userdata;
+
+  if (r->user_parser->enter_span)
+    r->user_parser->enter_span(type, detail, r->userdata);
 
   if (r->image_nesting_level > 0) {
     /* We are inside a Markdown image label. Markdown allows to use any
@@ -530,6 +540,9 @@ static int enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata) {
 static int leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata) {
   MD_HTML* r = (MD_HTML*)userdata;
 
+  if (r->user_parser->leave_span)
+    r->user_parser->leave_span(type, detail, r->userdata);
+
   if (r->image_nesting_level > 0) {
     /* Ditto as in enter_span_callback(), except we have to allow the
      * end of the <img> tag. */
@@ -574,6 +587,9 @@ static int leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata) {
 static int text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdata) {
   MD_HTML* r = (MD_HTML*)userdata;
 
+  if (r->user_parser->text)
+    r->user_parser->text(type, text, size, r->userdata);
+
   switch (type) {
     case MD_TEXT_NULLCHAR:
       render_utf8_codepoint(r, 0x0000, render_verbatim);
@@ -601,13 +617,15 @@ static int text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, vo
 
 static void debug_log_callback(const char* msg, void* userdata) {
   MD_HTML* r = (MD_HTML*)userdata;
+  if (r->user_parser->debug_log)
+    r->user_parser->debug_log(msg, r->userdata);
   if (r->flags & MD_HTML_FLAG_DEBUG)
     fprintf(stderr, "MD4C: %s\n", msg);
 }
 
 int md_html(const MD_CHAR* input, MD_SIZE input_size, void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
-            void* userdata, unsigned parser_flags, unsigned renderer_flags) {
-  MD_HTML render = {process_output, userdata, renderer_flags, 0, {0}};
+            MD_PARSER* user_parser, void* userdata, unsigned parser_flags, unsigned renderer_flags) {
+  MD_HTML render = {process_output, user_parser, userdata, renderer_flags, 0, {0}};
   int i;
 
   MD_PARSER parser = {0,

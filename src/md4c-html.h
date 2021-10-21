@@ -55,7 +55,7 @@ extern "C" {
  * Returns 0 on success.
  */
 int md_html(const MD_CHAR* input, MD_SIZE input_size, void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
-            void* userdata, unsigned parser_flags, unsigned renderer_flags);
+            MD_PARSER* user_parser, void* userdata, unsigned parser_flags, unsigned renderer_flags);
 
 #ifdef __cplusplus
 } /* extern "C" { */
