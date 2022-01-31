@@ -540,9 +540,6 @@ static int enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata) {
 static int leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata) {
   MD_HTML* r = (MD_HTML*)userdata;
 
-  if (r->user_parser->leave_span)
-    r->user_parser->leave_span(type, detail, r->userdata);
-
   if (r->image_nesting_level > 0) {
     /* Ditto as in enter_span_callback(), except we have to allow the
      * end of the <img> tag. */
@@ -580,6 +577,9 @@ static int leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata) {
       RENDER_VERBATIM(r, "</x-wikilink>");
       break;
   }
+
+  if (r->user_parser->leave_span)
+    r->user_parser->leave_span(type, detail, r->userdata);
 
   return 0;
 }
